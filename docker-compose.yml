@@ -1,0 +1,83 @@
+# Claudiator Docker Compose Configuration
+# https://github.com/G-TechSD/claudiator
+#
+# Usage:
+#   docker-compose up -d
+#
+# For full host filesystem access (use with caution):
+#   Uncomment the "- /:/host:rw" volume line
+#
+# For limited access (safer):
+#   Use the specific directory mounts below
+
+version: '3.8'
+
+services:
+  claudiator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gtechsd/claudiator:latest
+    container_name: claudiator
+
+    ports:
+      - "3200:3200"
+
+    volumes:
+      # ============================================
+      # OPTION 1: Full host filesystem access
+      # WARNING: This gives Claude Code full access to your entire system
+      # Only use in trusted environments or VMs
+      # ============================================
+      # - /:/host:rw
+
+      # ============================================
+      # OPTION 2: Limited access (recommended)
+      # Mount only the directories you want Claude Code to access
+      # ============================================
+      - ~/projects:/projects:rw
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+
+      # Persist tmux sessions across container restarts
+      - claudiator-tmux:/root/.tmux
+
+      # Optional: Mount Docker socket for Docker-in-Docker
+      # - /var/run/docker.sock:/var/run/docker.sock
+
+    # Required for full filesystem access
+    # privileged: true
+
+    environment:
+      - NODE_ENV=production
+      - CLAUDIATOR_PORT=3200
+      - CLAUDIATOR_TMUX_ENABLED=true
+      - CLAUDIATOR_HOST=0.0.0.0
+      # Add your Anthropic API key if needed
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3200/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  claudiator-tmux:
+    driver: local
+
+# ============================================
+# Full Host Access Configuration
+# ============================================
+# If you need full host access, create a docker-compose.override.yml:
+#
+# version: '3.8'
+# services:
+#   claudiator:
+#     privileged: true
+#     volumes:
+#       - /:/host:rw
+#       - /var/run/docker.sock:/var/run/docker.sock
