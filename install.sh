@@ -209,6 +209,26 @@ install_tmux() {
     log_success "tmux installed: $(tmux -V)"
 }
 
+# Check Claude Code CLI
+check_claude_code() {
+    command_exists claude
+}
+
+# Install Claude Code CLI
+install_claude_code() {
+    log_info "Installing Claude Code CLI..."
+
+    # Claude Code is installed via npm globally
+    npm install -g @anthropic-ai/claude-code
+
+    if check_claude_code; then
+        log_success "Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'installed')"
+    else
+        log_warn "Claude Code CLI installation may require a new terminal session"
+        log_info "You can also install manually: npm install -g @anthropic-ai/claude-code"
+    fi
+}
+
 # Check git
 check_git() {
     command_exists git
@@ -275,8 +295,35 @@ create_command() {
 INSTALL_DIR="${CLAUDIATOR_INSTALL_DIR:-$HOME/.claudiator}"
 PORT="${CLAUDIATOR_PORT:-3200}"
 
+check_claude_installed() {
+    if ! command -v claude >/dev/null 2>&1; then
+        echo ""
+        echo "╔════════════════════════════════════════════════════════════════╗"
+        echo "║  Claude Code CLI not found!                                    ║"
+        echo "║                                                                ║"
+        echo "║  Claudiator requires Claude Code CLI to manage terminals.      ║"
+        echo "║                                                                ║"
+        echo "║  Installing now...                                             ║"
+        echo "╚════════════════════════════════════════════════════════════════╝"
+        echo ""
+        npm install -g @anthropic-ai/claude-code
+        if ! command -v claude >/dev/null 2>&1; then
+            echo ""
+            echo "Installation may require a new terminal. Please run:"
+            echo "  npm install -g @anthropic-ai/claude-code"
+            echo ""
+            echo "Then try again: claudiator start"
+            exit 1
+        fi
+        echo ""
+        echo "Claude Code CLI installed successfully!"
+        echo ""
+    fi
+}
+
 case "$1" in
     start|"")
+        check_claude_installed
         cd "$INSTALL_DIR"
         node scripts/show-token.js
         echo "Starting Claudiator on http://localhost:$PORT ..."
@@ -314,6 +361,7 @@ case "$1" in
         "$INSTALL_DIR/uninstall.sh"
         ;;
     remote)
+        check_claude_installed
         cd "$INSTALL_DIR"
         node scripts/show-token.js
         echo "Starting Claudiator with REMOTE ACCESS ENABLED..."
@@ -510,6 +558,14 @@ main() {
         install_tmux || log_warn "tmux installation failed - you can disable tmux in Claudiator settings"
     else
         log_success "tmux found: $(tmux -V)"
+    fi
+
+    # Claude Code CLI - auto-install (required for Claudiator)
+    if ! check_claude_code; then
+        log_warn "Claude Code CLI not found, installing automatically..."
+        install_claude_code
+    else
+        log_success "Claude Code CLI found: $(claude --version 2>/dev/null || echo 'installed')"
     fi
 
     echo
