@@ -135,6 +135,7 @@ export function getAllActiveTerminals(): Map<string, pty.IPty> {
 function buildEnhancedPath(): string {
   const homeDir = os.homedir()
   const userPaths = [
+    `${homeDir}/.claude/local/bin`,  // Claude Code official install location
     `${homeDir}/.local/bin`,
     `${homeDir}/.cargo/bin`,
     `${homeDir}/.nvm/versions/node/*/bin`,
@@ -204,14 +205,10 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
 
     spawnCmd = "tmux"
 
-    if (autoStartClaude) {
-      // Create tmux session running claude directly
-      spawnArgs = ["new-session", "-A", "-s", tmuxSessionName, claudeCommand]
-      console.log(`[Claudiator] Creating tmux session: ${tmuxSessionName} with ${claudeCommand}`)
-    } else {
-      spawnArgs = ["new-session", "-A", "-s", tmuxSessionName]
-      console.log(`[Claudiator] Creating tmux session: ${tmuxSessionName} (shell only)`)
-    }
+    // Always start with a shell - send claude command after session starts
+    // This keeps the tmux session alive even if claude exits
+    spawnArgs = ["new-session", "-A", "-s", tmuxSessionName]
+    console.log(`[Claudiator] Creating tmux session: ${tmuxSessionName}`)
   } else {
     spawnCmd = shell
     spawnArgs = ["-l"]
@@ -254,11 +251,13 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
     }, 500)
   }
 
-  // If not using tmux but autoStartClaude is enabled, send the command
-  if (!tmuxSessionName && autoStartClaude) {
+  // Auto-start claude if enabled (works with or without tmux)
+  if (autoStartClaude) {
+    // Wait for shell to be ready, then send claude command
     setTimeout(() => {
       ptyProcess.write(`${claudeCommand}\r`)
-    }, 300)
+      console.log(`[Claudiator] Sent command: ${claudeCommand}`)
+    }, 500)
   }
 
   // Handle process exit
