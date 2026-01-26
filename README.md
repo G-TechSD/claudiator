@@ -95,7 +95,7 @@ A new token will be generated and displayed.
 ### One-Liner Install (Recommended)
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 ```
 
 This installs Claudiator and all dependencies automatically (Node.js, tmux, git).
@@ -124,13 +124,13 @@ Open [http://localhost:3200](http://localhost:3200) in your browser.
 The easiest way to install Claudiator:
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 ```
 
 Or with wget:
 
 ```bash
-wget -qO- https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 ```
 
 **What the installer does:**

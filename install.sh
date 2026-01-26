@@ -4,8 +4,8 @@
 # Multi-terminal management for Claude Code CLI sessions
 #
 # Usage:
-#   curl -fsSL https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
-#   wget -qO- https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
+#   wget -qO- https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 #
 
 set -e
@@ -214,12 +214,48 @@ check_claude_code() {
     command_exists claude
 }
 
+# Get npm global bin directory
+get_npm_bin() {
+    local npm_prefix=$(npm config get prefix 2>/dev/null)
+    if [ -n "$npm_prefix" ]; then
+        echo "$npm_prefix/bin"
+    else
+        echo ""
+    fi
+}
+
+# Add npm global bin to PATH
+setup_npm_path() {
+    local npm_bin=$(get_npm_bin)
+    if [ -z "$npm_bin" ]; then
+        return
+    fi
+
+    # Add to current session
+    if [[ ":$PATH:" != *":$npm_bin:"* ]]; then
+        export PATH="$npm_bin:$PATH"
+        log_info "Added $npm_bin to PATH for current session"
+    fi
+
+    # Add to shell rc if not already there
+    local shell_rc=$(get_shell_rc)
+    if ! grep -q "npm.*bin" "$shell_rc" 2>/dev/null; then
+        echo "" >> "$shell_rc"
+        echo "# npm global bin (for Claude Code CLI)" >> "$shell_rc"
+        echo "export PATH=\"\$(npm config get prefix)/bin:\$PATH\"" >> "$shell_rc"
+        log_info "Added npm global bin to $shell_rc"
+    fi
+}
+
 # Install Claude Code CLI
 install_claude_code() {
     log_info "Installing Claude Code CLI..."
 
     # Claude Code is installed via npm globally
     npm install -g @anthropic-ai/claude-code
+
+    # Ensure npm global bin is in PATH
+    setup_npm_path
 
     if check_claude_code; then
         log_success "Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'installed')"
@@ -296,6 +332,12 @@ INSTALL_DIR="${CLAUDIATOR_INSTALL_DIR:-$HOME/.claudiator}"
 PORT="${CLAUDIATOR_PORT:-3200}"
 
 check_claude_installed() {
+    # First, check if npm global bin is in PATH
+    local npm_bin=$(npm config get prefix 2>/dev/null)/bin
+    if [ -d "$npm_bin" ] && [[ ":$PATH:" != *":$npm_bin:"* ]]; then
+        export PATH="$npm_bin:$PATH"
+    fi
+
     if ! command -v claude >/dev/null 2>&1; then
         echo ""
         echo "╔════════════════════════════════════════════════════════════════╗"
@@ -307,10 +349,20 @@ check_claude_installed() {
         echo "╚════════════════════════════════════════════════════════════════╝"
         echo ""
         npm install -g @anthropic-ai/claude-code
+
+        # Add npm bin to PATH for this session
+        npm_bin=$(npm config get prefix 2>/dev/null)/bin
+        if [ -d "$npm_bin" ]; then
+            export PATH="$npm_bin:$PATH"
+        fi
+
         if ! command -v claude >/dev/null 2>&1; then
             echo ""
             echo "Installation may require a new terminal. Please run:"
             echo "  npm install -g @anthropic-ai/claude-code"
+            echo ""
+            echo "Add to your shell config:"
+            echo "  export PATH=\"\$(npm config get prefix)/bin:\$PATH\""
             echo ""
             echo "Then try again: claudiator start"
             exit 1
