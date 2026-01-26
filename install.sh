@@ -28,19 +28,18 @@ PORT="${CLAUDIATOR_PORT:-3200}"
 # Print banner
 print_banner() {
     echo -e "${CYAN}"
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║                                                           ║"
-    echo "║     ██████╗██╗      █████╗ ██╗   ██╗██████╗ ██╗ █████╗   ║"
-    echo "║    ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██║██╔══██╗  ║"
-    echo "║    ██║     ██║     ███████║██║   ██║██║  ██║██║███████║  ║"
-    echo "║    ██║     ██║     ██╔══██║██║   ██║██║  ██║██║██╔══██║  ║"
-    echo "║    ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝██║██║  ██║  ║"
-    echo "║     ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝  ║"
-    echo "║                        TOR                                ║"
-    echo "║                                                           ║"
-    echo "║        Multi-Terminal Management for Claude Code          ║"
-    echo "║                                                           ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo "╔═══════════════════════════════════════════════════════════════════════╗"
+    echo "║                                                                       ║"
+    echo "║   ██████╗██╗      █████╗ ██╗   ██╗██████╗ ██╗ █████╗ ████████╗ ██████╗██████╗  ║"
+    echo "║  ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██║██╔══██╗╚══██╔══╝██╔═══██╗██╔══██╗║"
+    echo "║  ██║     ██║     ███████║██║   ██║██║  ██║██║███████║   ██║   ██║   ██║██████╔╝║"
+    echo "║  ██║     ██║     ██╔══██║██║   ██║██║  ██║██║██╔══██║   ██║   ██║   ██║██╔══██╗║"
+    echo "║  ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝██║██║  ██║   ██║   ╚██████╔╝██║  ██║║"
+    echo "║   ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝║"
+    echo "║                                                                       ║"
+    echo "║            Multi-Terminal Management for Claude Code                  ║"
+    echo "║                                                                       ║"
+    echo "╚═══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
 
@@ -247,12 +246,30 @@ setup_npm_path() {
     fi
 }
 
+# Check if npm global install needs sudo
+npm_needs_sudo() {
+    local npm_prefix=$(npm config get prefix 2>/dev/null)
+    if [ -z "$npm_prefix" ]; then
+        return 0  # Assume needs sudo if we can't determine
+    fi
+    # Check if we can write to npm global directory
+    if [ -w "$npm_prefix/lib/node_modules" ] 2>/dev/null; then
+        return 1  # No sudo needed
+    fi
+    return 0  # Needs sudo
+}
+
 # Install Claude Code CLI
 install_claude_code() {
     log_info "Installing Claude Code CLI..."
 
     # Claude Code is installed via npm globally
-    npm install -g @anthropic-ai/claude-code
+    if npm_needs_sudo; then
+        log_info "Global npm directory requires sudo..."
+        sudo npm install -g @anthropic-ai/claude-code
+    else
+        npm install -g @anthropic-ai/claude-code
+    fi
 
     # Ensure npm global bin is in PATH
     setup_npm_path
@@ -261,7 +278,7 @@ install_claude_code() {
         log_success "Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'installed')"
     else
         log_warn "Claude Code CLI installation may require a new terminal session"
-        log_info "You can also install manually: npm install -g @anthropic-ai/claude-code"
+        log_info "You can also install manually: sudo npm install -g @anthropic-ai/claude-code"
     fi
 }
 
@@ -348,7 +365,15 @@ check_claude_installed() {
         echo "║  Installing now...                                             ║"
         echo "╚════════════════════════════════════════════════════════════════╝"
         echo ""
-        npm install -g @anthropic-ai/claude-code
+
+        # Check if we need sudo for npm global install
+        local npm_prefix=$(npm config get prefix 2>/dev/null)
+        if [ -w "$npm_prefix/lib/node_modules" ] 2>/dev/null; then
+            npm install -g @anthropic-ai/claude-code
+        else
+            echo "Global npm directory requires sudo..."
+            sudo npm install -g @anthropic-ai/claude-code
+        fi
 
         # Add npm bin to PATH for this session
         npm_bin=$(npm config get prefix 2>/dev/null)/bin
@@ -359,7 +384,7 @@ check_claude_installed() {
         if ! command -v claude >/dev/null 2>&1; then
             echo ""
             echo "Installation may require a new terminal. Please run:"
-            echo "  npm install -g @anthropic-ai/claude-code"
+            echo "  sudo npm install -g @anthropic-ai/claude-code"
             echo ""
             echo "Add to your shell config:"
             echo "  export PATH=\"\$(npm config get prefix)/bin:\$PATH\""
