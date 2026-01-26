@@ -510,7 +510,7 @@
                 </a>
             </div>
             <div class="install-box">
-                <code>curl -fsSL https://claudiator.app/install.sh | bash</code>
+                <code>curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash</code>
                 <button class="copy-btn" onclick="copyInstallCommand()">Copy</button>
             </div>
         </div>
@@ -615,7 +615,7 @@
                         </svg>
                         One-Liner (Recommended)
                     </h3>
-                    <pre>curl -fsSL https://claudiator.app/install.sh | bash</pre>
+                    <pre>curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash</pre>
                     <p>Installs Claudiator, checks dependencies, and sets up the <code>claudiator</code> command.</p>
                 </div>
                 <div class="install-method">
@@ -685,7 +685,7 @@ npm start</pre>
 
     <script>
         function copyInstallCommand() {
-            const command = 'curl -fsSL https://claudiator.app/install.sh | bash';
+            const command = 'curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash';
             navigator.clipboard.writeText(command).then(() => {
                 const btn = document.querySelector('.copy-btn');
                 btn.textContent = 'Copied!';

@@ -47,7 +47,7 @@ Run multiple Claude Code instances simultaneously, each in its own persistent tm
 ### One-Liner Install (Recommended)
 
 ```bash
-curl -fsSL https://claudiator.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 ```
 
 This installs Claudiator, its dependencies, and optionally tmux if not present.
@@ -69,13 +69,13 @@ Open [http://localhost:3200](http://localhost:3200) in your browser.
 The easiest way to install Claudiator:
 
 ```bash
-curl -fsSL https://claudiator.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 ```
 
 Or with wget:
 
 ```bash
-wget -qO- https://claudiator.app/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
 ```
 
 **What the installer does:**
