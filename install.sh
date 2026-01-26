@@ -351,11 +351,11 @@ case "$1" in
         node scripts/show-token.js
         ;;
     update)
+        echo "Updating Claudiator..."
         cd "$INSTALL_DIR"
         git pull
-        npm install
-        npm run build
-        echo "Claudiator updated successfully!"
+        # Re-run installer to update command script and dependencies
+        bash "$INSTALL_DIR/install.sh"
         ;;
     uninstall)
         "$INSTALL_DIR/uninstall.sh"
