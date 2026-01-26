@@ -296,6 +296,10 @@ case "$1" in
             echo "Claudiator is not running"
         fi
         ;;
+    token)
+        cd "$INSTALL_DIR"
+        node scripts/show-token.js
+        ;;
     update)
         cd "$INSTALL_DIR"
         git pull
@@ -315,11 +319,13 @@ case "$1" in
         echo "  start       Start Claudiator server (default)"
         echo "  stop        Stop Claudiator server"
         echo "  status      Check if Claudiator is running"
+        echo "  token       Show access token for login"
         echo "  update      Update to latest version"
         echo "  uninstall   Remove Claudiator completely"
         echo "  dev         Start in development mode"
         echo ""
         echo "After starting, open http://localhost:$PORT in your browser"
+        echo "Use 'claudiator token' to get your login token"
         ;;
 esac
 SCRIPT
