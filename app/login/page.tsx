@@ -30,26 +30,33 @@ function LoginForm() {
     setError("")
     setIsLoading(true)
 
+    console.log("[Login] Attempting login...")
+
     try {
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: token.trim() }),
       })
 
-      const data = await response.json()
+      console.log("[Login] Response status:", response.status)
 
-      if (response.ok) {
+      const data = await response.json()
+      console.log("[Login] Response data:", data)
+
+      if (response.ok && data.success) {
+        console.log("[Login] Success, redirecting...")
         // Redirect to home or original destination
         const redirect = searchParams.get("redirect") || "/"
-        router.push(redirect)
-        router.refresh()
+        // Use window.location for a full page reload to pick up the new cookie
+        window.location.href = redirect
       } else {
         setError(data.error || "Authentication failed")
+        setIsLoading(false)
       }
     } catch (err) {
-      setError("Failed to connect to server")
-    } finally {
+      console.error("[Login] Error:", err)
+      setError("Failed to connect to server: " + (err instanceof Error ? err.message : String(err)))
       setIsLoading(false)
     }
   }

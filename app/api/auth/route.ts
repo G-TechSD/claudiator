@@ -17,18 +17,25 @@ export const dynamic = "force-dynamic"
  * POST - Login with token
  */
 export async function POST(request: NextRequest) {
+  console.log("[Auth] POST /api/auth called")
   try {
     const body = await request.json()
     const { token } = body
 
+    console.log("[Auth] Token received:", token ? `${token.substring(0, 8)}...` : "none")
+
     if (!token) {
+      console.log("[Auth] No token provided")
       return NextResponse.json(
         { error: "Token is required" },
         { status: 400 }
       )
     }
 
-    if (!validateToken(token)) {
+    const isValid = validateToken(token)
+    console.log("[Auth] Token validation result:", isValid)
+
+    if (!isValid) {
       console.log("[Auth] Invalid token attempt")
       return NextResponse.json(
         { error: "Invalid token" },

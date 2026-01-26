@@ -128,7 +128,13 @@ export function regenerateToken(): string {
  */
 export function validateToken(token: string): boolean {
   const validToken = getAccessToken()
-  return validToken !== null && token === validToken
+  console.log("[Auth] Validating token:")
+  console.log("[Auth]   Provided:", token ? `${token.substring(0, 8)}...${token.substring(token.length - 8)}` : "none")
+  console.log("[Auth]   Expected:", validToken ? `${validToken.substring(0, 8)}...${validToken.substring(validToken.length - 8)}` : "none (no token file)")
+  console.log("[Auth]   Token file:", TOKEN_FILE)
+  const isValid = validToken !== null && token === validToken
+  console.log("[Auth]   Result:", isValid)
+  return isValid
 }
 
 /**
