@@ -1,5 +1,7 @@
 # Claudiator
 
+> **WARNING: BETA SOFTWARE** - This software was developed with AI assistance and is provided AS-IS without warranty. It provides direct terminal access to your system. Read the [Security](#security) and [Disclaimer](#disclaimer) sections before use. The developers are not responsible for any damage, data loss, or security incidents.
+
 **Multi-terminal management for Claude Code CLI sessions with tmux persistence.**
 
 Run multiple Claude Code instances simultaneously, each in its own persistent tmux session that survives browser refreshes, pop-outs, and reconnections.
@@ -9,6 +11,7 @@ Run multiple Claude Code instances simultaneously, each in its own persistent tm
 ## Table of Contents
 
 - [Features](#features)
+- [Authentication](#authentication)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
   - [One-Liner Install (Linux/macOS)](#one-liner-install-linuxmacos)
@@ -20,7 +23,8 @@ Run multiple Claude Code instances simultaneously, each in its own persistent tm
 - [Architecture](#architecture)
 - [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
-- [Safety Recommendations](#safety-recommendations)
+- [Security](#security)
+- [Disclaimer](#disclaimer)
 - [License](#license)
 
 ---
@@ -602,18 +606,99 @@ CLAUDIATOR_PORT=3201 npm start
 
 ---
 
-## Safety Recommendations
+## Security
 
-### Use a Virtual Machine
+### Important Security Information
 
-**Strongly recommended for production use:**
+**READ THIS CAREFULLY BEFORE USING CLAUDIATOR**
 
-Claude Code has powerful capabilities including file system access and code execution. For safety:
+Claudiator provides a web interface to spawn and control terminal sessions running Claude Code. This is an inherently powerful and potentially dangerous capability. Understanding the security model is essential.
 
-1. **Run in a VM** with 8-32 GB RAM and adequate CPU
-2. **Snapshot frequently** to restore from mistakes
-3. **Limit network access** if not needed
-4. **Use Docker** with limited volume mounts for isolation
+### What Claudiator Can Do
+
+When authenticated, users can:
+- **Execute arbitrary shell commands** via Claude Code
+- **Read, write, and delete any files** accessible to the user running Claudiator
+- **Access the network** from the server
+- **Install software** if the user has appropriate permissions
+- **Spawn multiple concurrent AI agents** with full system access
+
+### Authentication Model
+
+Claudiator uses token-based authentication:
+
+| Component | Description |
+|-----------|-------------|
+| **Access Token** | 64-character cryptographically random hex string |
+| **Token Storage** | `.local-storage/claudiator-token.json` (server-side only) |
+| **Session Cookie** | `claudiator_session` - httpOnly, 24-hour expiry |
+| **API Auth** | `X-Claudiator-Token` header or `?token=` query param |
+
+### Security Limitations
+
+**The authentication system has limitations you must understand:**
+
+1. **Single Token** - All users share the same access token. There is no user-level access control.
+
+2. **No Encryption by Default** - Claudiator runs on HTTP by default. Use a reverse proxy (nginx, Caddy) with TLS for HTTPS.
+
+3. **Token in Memory** - Active sessions are stored in server memory. Server restart clears all sessions.
+
+4. **No Rate Limiting** - There is no built-in protection against brute-force token guessing.
+
+5. **Local Network Exposure** - By default, Claudiator binds to `0.0.0.0`, making it accessible on your local network.
+
+6. **No Audit Logging** - Commands executed through Claude Code are not logged by Claudiator.
+
+### Security Best Practices
+
+#### Network Security
+
+```bash
+# Bind to localhost only (recommended for single-user)
+CLAUDIATOR_HOST=127.0.0.1 npm start
+
+# Use a firewall to restrict access
+sudo ufw allow from 192.168.1.0/24 to any port 3200
+```
+
+#### Use HTTPS in Production
+
+For any non-localhost deployment, use a reverse proxy with TLS:
+
+```nginx
+# Example nginx config
+server {
+    listen 443 ssl;
+    server_name claudiator.yourdomain.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3200;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
+
+#### Token Management
+
+- **Never share your token** in screenshots, logs, or public channels
+- **Regenerate the token** if you suspect it has been compromised (delete `.local-storage/claudiator-token.json` and restart)
+- **Use environment variables** for automated deployments instead of hardcoding tokens
+
+#### Run in Isolation
+
+**Strongly recommended:** Run Claudiator in an isolated environment:
+
+1. **Virtual Machine** - Preferred for maximum isolation
+2. **Docker Container** - With limited volume mounts
+3. **Dedicated User Account** - With restricted permissions
+4. **Sandboxed Environment** - Cloud VM, etc.
 
 ### Recommended VM Specs
 
@@ -623,18 +708,94 @@ Claude Code has powerful capabilities including file system access and code exec
 | Medium (3-8 terminals) | 16 GB | 4 cores | 100 GB |
 | Heavy (9-16 terminals) | 32 GB | 8 cores | 200 GB |
 
-### GPU/VRAM
-
-**Claudiator itself doesn't require GPU.** However, if you're running local AI models alongside Claude Code:
-- 8 GB VRAM minimum for small models
-- 16-32 GB VRAM for larger models
-
 ### VM Options
 
 - **Multipass** (Ubuntu): `multipass launch --memory 16G --cpus 4 --disk 100G`
 - **Lima** (macOS): `lima create --memory 16 --cpus 4 --disk 100`
 - **VirtualBox**: Create VM with recommended specs
 - **Cloud**: AWS EC2, GCP Compute, Azure VM
+
+### Security Checklist
+
+Before deploying Claudiator, verify:
+
+- [ ] Running on localhost OR behind HTTPS reverse proxy
+- [ ] Firewall configured to restrict access
+- [ ] Running as non-root user
+- [ ] Running in VM/container OR on dedicated machine
+- [ ] Token stored securely and not shared
+- [ ] Regular snapshots/backups configured
+- [ ] Understood that Claude Code has full system access
+
+---
+
+## Disclaimer
+
+### Beta Software Notice
+
+**CLAUDIATOR IS BETA SOFTWARE DEVELOPED WITH AI ASSISTANCE**
+
+This software is provided in beta form and is under active development. It was developed with significant assistance from AI (Claude by Anthropic).
+
+### No Warranty
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+### Limitation of Liability
+
+IN NO EVENT SHALL THE AUTHORS, CONTRIBUTORS, OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### Specific Risks
+
+By using Claudiator, you acknowledge and accept the following risks:
+
+1. **Data Loss** - Claude Code can modify or delete files. Always maintain backups.
+
+2. **System Damage** - Incorrect commands can damage your system, corrupt data, or cause instability.
+
+3. **Security Breaches** - Misconfiguration could expose your system to unauthorized access.
+
+4. **Unintended Actions** - AI models can misinterpret instructions and take unexpected actions.
+
+5. **Resource Consumption** - Multiple Claude Code instances can consume significant CPU, memory, and API credits.
+
+6. **Network Actions** - Claude Code can make network requests, potentially exposing data or triggering external services.
+
+### Your Responsibility
+
+You are solely responsible for:
+
+- Securing your Claudiator installation
+- Backing up your data before using Claude Code
+- Reviewing actions taken by Claude Code
+- Ensuring compliance with applicable laws and regulations
+- Any costs incurred (API usage, cloud resources, etc.)
+- Any damage to your systems, data, or third-party systems
+
+### AI-Generated Code Notice
+
+Portions of this software were generated or modified by AI. While efforts have been made to ensure correctness and security, AI-generated code may contain:
+
+- Bugs or logical errors
+- Security vulnerabilities
+- Unexpected behaviors
+- Incomplete implementations
+
+**Always review AI-generated code before using in production environments.**
+
+### Not for Production Critical Systems
+
+Claudiator is **NOT recommended** for:
+
+- Production servers with sensitive data
+- Systems without proper backups
+- Environments requiring high availability
+- Compliance-regulated environments (HIPAA, PCI-DSS, etc.)
+- Systems you cannot afford to rebuild
+
+### Acceptance
+
+By installing, running, or using Claudiator, you acknowledge that you have read, understood, and agree to this disclaimer. If you do not agree, do not use this software.
 
 ---
 
