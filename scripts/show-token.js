@@ -44,6 +44,8 @@ function ensureToken() {
 
 function showToken() {
   const token = ensureToken()
+  const allowRemote = process.env.CLAUDIATOR_ALLOW_REMOTE === 'true'
+  const port = process.env.CLAUDIATOR_PORT || process.env.PORT || '3200'
 
   console.log('')
   console.log('╔══════════════════════════════════════════════════════════════════╗')
@@ -52,12 +54,25 @@ function showToken() {
   console.log('║                                                                   ║')
   console.log(`║  ${token}  ║`)
   console.log('║                                                                   ║')
-  console.log('║  Use this token to log in at http://localhost:3200/login          ║')
-  console.log('║                                                                   ║')
+  console.log(`║  Login: http://localhost:${port}/login                              ║`)
   console.log('║  Token file: .local-storage/claudiator-token.json                 ║')
+  console.log('║                                                                   ║')
+  console.log('╠══════════════════════════════════════════════════════════════════╣')
+
+  if (allowRemote) {
+    console.log('║  \x1b[33m⚠ REMOTE ACCESS ENABLED\x1b[0m                                        ║')
+    console.log('║  \x1b[33mWarning: SSL/HTTPS is NOT supported. Use a reverse proxy\x1b[0m       ║')
+    console.log('║  \x1b[33m(nginx/Caddy) with TLS for secure remote access.\x1b[0m               ║')
+  } else {
+    console.log('║  \x1b[32m✓ LOCALHOST ONLY MODE (Secure)\x1b[0m                                 ║')
+    console.log('║  Remote connections will be blocked.                             ║')
+    console.log('║  To enable remote: CLAUDIATOR_ALLOW_REMOTE=true claudiator start ║')
+  }
+
   console.log('╚══════════════════════════════════════════════════════════════════╝')
   console.log('')
 }
+
 
 // If run directly
 if (require.main === module) {

@@ -313,13 +313,26 @@ case "$1" in
     uninstall)
         "$INSTALL_DIR/uninstall.sh"
         ;;
+    remote)
+        cd "$INSTALL_DIR"
+        node scripts/show-token.js
+        echo "Starting Claudiator with REMOTE ACCESS ENABLED..."
+        echo ""
+        echo "  WARNING: Remote access is enabled without SSL/HTTPS."
+        echo "  Only use on trusted networks or behind a reverse proxy with TLS."
+        echo ""
+        echo "Press Ctrl+C to stop"
+        echo ""
+        CLAUDIATOR_ALLOW_REMOTE=true exec npx next start --port "$PORT"
+        ;;
     *)
         echo "Claudiator - Multi-Terminal Management for Claude Code"
         echo ""
         echo "Usage: claudiator [command]"
         echo ""
         echo "Commands:"
-        echo "  start       Start Claudiator server (default)"
+        echo "  start       Start server (localhost only - secure default)"
+        echo "  remote      Start server with remote access (use with caution)"
         echo "  stop        Stop Claudiator server"
         echo "  status      Check if Claudiator is running"
         echo "  token       Show access token for login"
@@ -327,8 +340,17 @@ case "$1" in
         echo "  uninstall   Remove Claudiator completely"
         echo "  dev         Start in development mode"
         echo ""
+        echo "Environment variables:"
+        echo "  CLAUDIATOR_PORT=3200           Server port"
+        echo "  CLAUDIATOR_ALLOW_REMOTE=true   Enable remote access"
+        echo ""
         echo "After starting, open http://localhost:$PORT in your browser"
         echo "Use 'claudiator token' to get your login token"
+        echo ""
+        echo "Security: By default, only localhost can connect."
+        echo "Use 'claudiator remote' or set CLAUDIATOR_ALLOW_REMOTE=true"
+        echo "to allow connections from other computers."
+        echo "Note: SSL/HTTPS is NOT supported - use a reverse proxy for secure remote access."
         ;;
 esac
 SCRIPT
