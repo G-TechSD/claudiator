@@ -258,24 +258,34 @@ npm_needs_sudo() {
 
 # Install Claude Code CLI
 install_claude_code() {
-    log_info "Installing Claude Code CLI..."
+    log_info "Installing Claude Code CLI using official installer..."
 
-    # Claude Code is installed via npm globally
-    if npm_needs_sudo; then
-        log_info "Global npm directory requires sudo..."
-        sudo npm install -g @anthropic-ai/claude-code
-    else
-        npm install -g @anthropic-ai/claude-code
+    # Use official Claude Code installer
+    if ! curl -fsSL https://claude.ai/install.sh | bash; then
+        log_error "Failed to install Claude Code CLI"
+        log_info "Please install manually: curl -fsSL https://claude.ai/install.sh | bash"
+        return 1
     fi
 
-    # Ensure npm global bin is in PATH
-    setup_npm_path
+    # Source shell config to get updated PATH
+    local shell_rc=$(get_shell_rc)
+    if [ -f "$shell_rc" ]; then
+        source "$shell_rc" 2>/dev/null || true
+    fi
+
+    # Also check common Claude Code install locations
+    for claude_path in "$HOME/.claude/local/bin" "$HOME/.local/bin" "/usr/local/bin"; do
+        if [ -x "$claude_path/claude" ]; then
+            export PATH="$claude_path:$PATH"
+            break
+        fi
+    done
 
     if check_claude_code; then
         log_success "Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'installed')"
     else
-        log_warn "Claude Code CLI installation may require a new terminal session"
-        log_info "You can also install manually: sudo npm install -g @anthropic-ai/claude-code"
+        log_warn "Claude Code CLI installed but not in PATH"
+        log_info "You may need to open a new terminal"
     fi
 }
 
@@ -346,11 +356,12 @@ INSTALL_DIR="${CLAUDIATOR_INSTALL_DIR:-$HOME/.claudiator}"
 PORT="${CLAUDIATOR_PORT:-3200}"
 
 check_claude_installed() {
-    # First, check if npm global bin is in PATH
-    local npm_bin=$(npm config get prefix 2>/dev/null)/bin
-    if [ -d "$npm_bin" ] && [[ ":$PATH:" != *":$npm_bin:"* ]]; then
-        export PATH="$npm_bin:$PATH"
-    fi
+    # Check common Claude Code install locations
+    for claude_path in "$HOME/.claude/local/bin" "$HOME/.local/bin" "/usr/local/bin"; do
+        if [ -x "$claude_path/claude" ] && [[ ":$PATH:" != *":$claude_path:"* ]]; then
+            export PATH="$claude_path:$PATH"
+        fi
+    done
 
     if ! command -v claude >/dev/null 2>&1; then
         echo ""
@@ -359,32 +370,32 @@ check_claude_installed() {
         echo "║                                                                ║"
         echo "║  Claudiator requires Claude Code CLI to manage terminals.      ║"
         echo "║                                                                ║"
-        echo "║  Installing now...                                             ║"
+        echo "║  Installing now using official installer...                    ║"
         echo "╚════════════════════════════════════════════════════════════════╝"
         echo ""
 
-        # Check if we need sudo for npm global install
-        local npm_prefix=$(npm config get prefix 2>/dev/null)
-        if [ -w "$npm_prefix/lib/node_modules" ] 2>/dev/null; then
-            npm install -g @anthropic-ai/claude-code
-        else
-            echo "Global npm directory requires sudo..."
-            sudo npm install -g @anthropic-ai/claude-code
+        # Use official Claude Code installer
+        curl -fsSL https://claude.ai/install.sh | bash
+
+        # Source shell config to get updated PATH
+        if [ -f "$HOME/.bashrc" ]; then
+            source "$HOME/.bashrc" 2>/dev/null || true
+        elif [ -f "$HOME/.zshrc" ]; then
+            source "$HOME/.zshrc" 2>/dev/null || true
         fi
 
-        # Add npm bin to PATH for this session
-        npm_bin=$(npm config get prefix 2>/dev/null)/bin
-        if [ -d "$npm_bin" ]; then
-            export PATH="$npm_bin:$PATH"
-        fi
+        # Check common install locations again
+        for claude_path in "$HOME/.claude/local/bin" "$HOME/.local/bin" "/usr/local/bin"; do
+            if [ -x "$claude_path/claude" ]; then
+                export PATH="$claude_path:$PATH"
+                break
+            fi
+        done
 
         if ! command -v claude >/dev/null 2>&1; then
             echo ""
             echo "Installation may require a new terminal. Please run:"
-            echo "  sudo npm install -g @anthropic-ai/claude-code"
-            echo ""
-            echo "Add to your shell config:"
-            echo "  export PATH=\"\$(npm config get prefix)/bin:\$PATH\""
+            echo "  curl -fsSL https://claude.ai/install.sh | bash"
             echo ""
             echo "Then try again: claudiator start"
             exit 1
