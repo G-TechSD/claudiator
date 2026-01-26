@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
 import { terminalServer } from "@/lib/terminal-server"
 import { generateId } from "@/lib/utils"
+import { validateApiAuth } from "@/lib/api-auth"
+
+// Force dynamic rendering
+export const dynamic = "force-dynamic"
 
 // Store for SSE connections
 const sseConnections = new Map<string, ReadableStreamDefaultController>()
 
 // POST - Create a new terminal session
 export async function POST(request: NextRequest) {
+  // Validate authentication
+  const auth = validateApiAuth(request)
+  if (!auth.authenticated) return auth.error!
+
   try {
     const body = await request.json()
     const {
       workingDirectory,
       bypassPermissions,
       autoStartClaude = true,  // Default to true
+      label,  // Human-readable label for tmux session
       cols = 80,
       rows = 24
     } = body
@@ -34,6 +43,7 @@ export async function POST(request: NextRequest) {
       useTmux: true,
       bypassPermissions: bypassPermissions || false,
       autoStartClaude,
+      label,
     })
 
     // Set up output handler for SSE
@@ -80,6 +90,10 @@ export async function POST(request: NextRequest) {
 
 // PUT - Send input or resize
 export async function PUT(request: NextRequest) {
+  // Validate authentication
+  const auth = validateApiAuth(request)
+  if (!auth.authenticated) return auth.error!
+
   try {
     const body = await request.json()
     const { sessionId, type, data, cols, rows } = body
@@ -177,6 +191,10 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Stop a terminal
 export async function DELETE(request: NextRequest) {
+  // Validate authentication
+  const auth = validateApiAuth(request)
+  if (!auth.authenticated) return auth.error!
+
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("sessionId")
@@ -214,6 +232,10 @@ export async function DELETE(request: NextRequest) {
 
 // GET - SSE stream for terminal output
 export async function GET(request: NextRequest) {
+  // Validate authentication
+  const auth = validateApiAuth(request)
+  if (!auth.authenticated) return auth.error!
+
   const { searchParams } = new URL(request.url)
   const sessionId = searchParams.get("sessionId")
 

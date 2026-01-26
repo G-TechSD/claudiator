@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
+import { validateApiAuth } from "@/lib/api-auth"
+
+// Force dynamic rendering
+export const dynamic = "force-dynamic"
 
 // Expand ~ to home directory
 function expandPath(p: string): string {
@@ -16,6 +20,10 @@ function expandPath(p: string): string {
 
 // GET - List projects directory or check if path exists
 export async function GET(request: NextRequest) {
+  // Validate authentication
+  const auth = validateApiAuth(request)
+  if (!auth.authenticated) return auth.error!
+
   const { searchParams } = new URL(request.url)
   const checkPath = searchParams.get("checkPath")
   const projectsDir = searchParams.get("projectsDir")
@@ -76,6 +84,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new project (just the folder)
 export async function POST(request: NextRequest) {
+  // Validate authentication
+  const auth = validateApiAuth(request)
+  if (!auth.authenticated) return auth.error!
+
   try {
     const body = await request.json()
     const { name, projectsDirectory, customPath } = body

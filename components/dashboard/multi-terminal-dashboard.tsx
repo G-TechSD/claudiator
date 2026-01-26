@@ -31,9 +31,22 @@ import {
   FolderPlus,
   Folder,
   ChevronDown,
+  RotateCcw,
+  XCircle,
+  RefreshCw,
+  LogOut,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
+
+interface TmuxSessionInfo {
+  name: string
+  created: string
+  attached: boolean
+  windows: number
+}
 
 export function MultiTerminalDashboard() {
+  const router = useRouter()
   const [terminals, setTerminals] = useState<TerminalSession[]>([])
   const [projects, setProjects] = useState<ClaudiatorProject[]>([])
   const [settings, setSettings] = useState<ClaudiatorSettings>(DEFAULT_SETTINGS)
@@ -43,6 +56,19 @@ export function MultiTerminalDashboard() {
   const [showCustomPath, setShowCustomPath] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [existingProjects, setExistingProjects] = useState<{ name: string; path: string }[]>([])
+  const [tmuxSessions, setTmuxSessions] = useState<TmuxSessionInfo[]>([])
+  const [showTmuxDropdown, setShowTmuxDropdown] = useState(false)
+
+  // Logout handler
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch("/api/auth", { method: "DELETE" })
+      router.push("/login")
+      router.refresh()
+    } catch (error) {
+      console.error("Logout failed:", error)
+    }
+  }, [router])
 
   // Load initial state
   useEffect(() => {
@@ -71,6 +97,26 @@ export function MultiTerminalDashboard() {
     loadExistingProjects()
   }, [settings.projectsDirectory])
 
+  // Load tmux sessions
+  const loadTmuxSessions = useCallback(async () => {
+    try {
+      const response = await fetch("/api/sessions")
+      if (response.ok) {
+        const data = await response.json()
+        setTmuxSessions(data.tmuxSessions || [])
+      }
+    } catch (error) {
+      console.error("Failed to load tmux sessions:", error)
+    }
+  }, [])
+
+  // Load tmux sessions periodically
+  useEffect(() => {
+    loadTmuxSessions()
+    const interval = setInterval(loadTmuxSessions, 10000) // Refresh every 10s
+    return () => clearInterval(interval)
+  }, [loadTmuxSessions])
+
   // Create new project and terminal
   const handleCreateProject = useCallback(
     async (projectName: string, pathOverride?: string) => {
@@ -79,10 +125,11 @@ export function MultiTerminalDashboard() {
 
       setIsCreating(true)
       try {
-        let projectPath = pathOverride
+        let projectPath: string = pathOverride || ""
+        const label = projectName.trim() || pathOverride?.split("/").pop() || "terminal"
 
         // If no path override, create project folder
-        if (!projectPath) {
+        if (!pathOverride) {
           const response = await fetch("/api/projects", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -114,7 +161,7 @@ export function MultiTerminalDashboard() {
           saveProjects(updatedProjects)
         }
 
-        // Create terminal via API
+        // Create terminal via API with label for human-readable tmux name
         const response = await fetch("/api/terminal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,6 +169,7 @@ export function MultiTerminalDashboard() {
             workingDirectory: projectPath,
             bypassPermissions: settings.bypassPermissionsDefault,
             autoStartClaude: settings.autoStartClaude,
+            label,  // Pass label for human-readable tmux session name
             cols: 80,
             rows: 24,
           }),
@@ -138,7 +186,7 @@ export function MultiTerminalDashboard() {
           id: data.sessionId,
           tmuxSessionName: data.tmuxSessionName,
           workingDirectory: projectPath!,
-          label: projectName.trim() || projectPath!.split("/").pop() || "Terminal",
+          label,
           createdAt: new Date().toISOString(),
           lastActiveAt: new Date().toISOString(),
           status: "active",
@@ -152,6 +200,7 @@ export function MultiTerminalDashboard() {
         setNewProjectName("")
         setCustomPath("")
         setShowCustomPath(false)
+        loadTmuxSessions() // Refresh tmux sessions list
       } catch (error) {
         console.error("Failed to create project:", error)
         alert(error instanceof Error ? error.message : "Failed to create project")
@@ -159,7 +208,63 @@ export function MultiTerminalDashboard() {
         setIsCreating(false)
       }
     },
-    [terminals, projects, settings, isCreating, showCustomPath, customPath]
+    [terminals, projects, settings, isCreating, showCustomPath, customPath, loadTmuxSessions]
+  )
+
+  // Reopen existing tmux session
+  const handleReopenSession = useCallback(
+    async (tmuxSessionName: string) => {
+      if (terminals.length >= MAX_TERMINALS || isCreating) return
+
+      setIsCreating(true)
+      setShowTmuxDropdown(false)
+      try {
+        // Extract label from tmux session name (claudiator-{label}-{id})
+        const parts = tmuxSessionName.replace("claudiator-", "").split("-")
+        const label = parts.slice(0, -1).join("-") || tmuxSessionName
+
+        // Create a reconnection session
+        const response = await fetch("/api/terminal", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "reconnect",
+            sessionId: `reopen-${Date.now()}`,
+            tmuxSessionName,
+            cols: 80,
+            rows: 24,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to reconnect to session")
+        }
+
+        const data = await response.json()
+
+        // Add to local state
+        const newTerminal: TerminalSession = {
+          id: data.sessionId || `reopen-${Date.now()}`,
+          tmuxSessionName,
+          workingDirectory: "~", // Unknown
+          label: `Reopened: ${label}`,
+          createdAt: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+          status: "active",
+          bypassPermissions: false,
+        }
+
+        const updated = [...terminals, newTerminal]
+        setTerminals(updated)
+        saveTerminals(updated)
+      } catch (error) {
+        console.error("Failed to reopen session:", error)
+        alert(error instanceof Error ? error.message : "Failed to reopen session")
+      } finally {
+        setIsCreating(false)
+      }
+    },
+    [terminals, isCreating]
   )
 
   // Open existing project
@@ -181,11 +286,12 @@ export function MultiTerminalDashboard() {
         const updated = terminals.filter((t) => t.id !== id)
         setTerminals(updated)
         removeTerminalFromStore(id)
+        loadTmuxSessions() // Refresh tmux sessions list
       } catch (error) {
         console.error("Failed to close terminal:", error)
       }
     },
-    [terminals]
+    [terminals, loadTmuxSessions]
   )
 
   // Pop out terminal
@@ -217,10 +323,27 @@ export function MultiTerminalDashboard() {
       await fetch("/api/sessions?all=true", { method: "DELETE" })
       setTerminals([])
       saveTerminals([])
+      loadTmuxSessions()
     } catch (error) {
       console.error("Failed to close all terminals:", error)
     }
-  }, [])
+  }, [loadTmuxSessions])
+
+  // Kill all tmux sessions
+  const handleKillAllTmux = useCallback(async () => {
+    if (!window.confirm("Kill ALL Claudiator tmux sessions? This will terminate any running Claude Code instances.")) return
+
+    try {
+      const response = await fetch("/api/sessions?all=true", { method: "DELETE" })
+      const data = await response.json()
+      alert(`Killed ${data.killed} tmux sessions`)
+      setTerminals([])
+      saveTerminals([])
+      loadTmuxSessions()
+    } catch (error) {
+      console.error("Failed to kill tmux sessions:", error)
+    }
+  }, [loadTmuxSessions])
 
   // Update settings
   const handleSettingsChange = useCallback((newSettings: ClaudiatorSettings) => {
@@ -244,6 +367,11 @@ export function MultiTerminalDashboard() {
     }
   }
 
+  // Get orphan tmux sessions (not in terminals list)
+  const orphanSessions = tmuxSessions.filter(
+    (s) => !terminals.some((t) => t.tmuxSessionName === s.name)
+  )
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -256,6 +384,11 @@ export function MultiTerminalDashboard() {
             <h1 className="text-xl font-semibold">Claudiator</h1>
             <p className="text-sm text-muted-foreground">
               {terminals.length} of {MAX_TERMINALS} terminals
+              {tmuxSessions.length > 0 && (
+                <span className="ml-2 text-xs">
+                  ({tmuxSessions.length} tmux sessions)
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -302,6 +435,53 @@ export function MultiTerminalDashboard() {
             </Button>
           </div>
 
+          {/* Reopen tmux session dropdown */}
+          {orphanSessions.length > 0 && (
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowTmuxDropdown(!showTmuxDropdown)}
+                className="gap-1"
+                title="Reopen existing tmux session"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reopen ({orphanSessions.length})
+                <ChevronDown className={cn("h-3 w-3 transition-transform", showTmuxDropdown && "rotate-180")} />
+              </Button>
+              {showTmuxDropdown && (
+                <div className="absolute right-0 top-full mt-1 w-64 bg-card border rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
+                  <div className="p-2 border-b text-xs text-muted-foreground">
+                    Existing tmux sessions
+                  </div>
+                  {orphanSessions.map((session) => (
+                    <button
+                      key={session.name}
+                      onClick={() => handleReopenSession(session.name)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center justify-between"
+                      disabled={isCreating || terminals.length >= MAX_TERMINALS}
+                    >
+                      <span className="truncate">{session.name.replace("claudiator-", "")}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {session.attached ? "attached" : "detached"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Refresh tmux sessions */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={loadTmuxSessions}
+            title="Refresh tmux sessions"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+
           {/* Settings */}
           <Button
             variant="outline"
@@ -312,7 +492,21 @@ export function MultiTerminalDashboard() {
             <Settings className="h-4 w-4" />
           </Button>
 
-          {/* Close all */}
+          {/* Kill all tmux sessions */}
+          {tmuxSessions.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleKillAllTmux}
+              className="text-destructive hover:text-destructive gap-1"
+              title="Kill all tmux sessions"
+            >
+              <XCircle className="h-4 w-4" />
+              End All
+            </Button>
+          )}
+
+          {/* Close all terminals */}
           {terminals.length > 0 && (
             <Button
               variant="outline"
@@ -324,6 +518,17 @@ export function MultiTerminalDashboard() {
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
+
+          {/* Logout */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            title="Logout"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </header>
 
@@ -433,6 +638,12 @@ export function MultiTerminalDashboard() {
             <p className="text-sm text-muted-foreground">
               Claude Code starts automatically in each terminal with tmux persistence
             </p>
+            {orphanSessions.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-4">
+                <strong>{orphanSessions.length}</strong> existing tmux session(s) found.
+                Click "Reopen" above to reconnect.
+              </p>
+            )}
           </div>
         ) : (
           /* Terminal grid */
@@ -455,6 +666,14 @@ export function MultiTerminalDashboard() {
         onClose={() => setShowSettings(false)}
         onSettingsChange={handleSettingsChange}
       />
+
+      {/* Click outside to close dropdown */}
+      {showTmuxDropdown && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowTmuxDropdown(false)}
+        />
+      )}
     </div>
   )
 }

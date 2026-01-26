@@ -27,8 +27,19 @@ export function isTmuxAvailable(): boolean {
   return tmuxAvailable
 }
 
-// Get tmux session name for a terminal
-export function getTmuxSessionName(terminalId: string): string {
+// Get tmux session name for a terminal (human-readable)
+export function getTmuxSessionName(terminalId: string, label?: string): string {
+  if (label) {
+    // Create human-readable name from label
+    const sanitized = label
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 20)
+    const shortId = terminalId.slice(0, 4)
+    return `${TMUX_SESSION_PREFIX}-${sanitized}-${shortId}`
+  }
   return `${TMUX_SESSION_PREFIX}-${terminalId}`
 }
 
@@ -42,7 +53,7 @@ export function tmuxSessionExists(sessionName: string): boolean {
   }
 }
 
-// List all claudiator tmux sessions
+// List all claudiator tmux sessions with details
 export function listTmuxSessions(): string[] {
   try {
     const output = execSync(`tmux list-sessions -F "#{session_name}" 2>/dev/null`, {
@@ -51,6 +62,37 @@ export function listTmuxSessions(): string[] {
     return output
       .split("\n")
       .filter((s) => s.startsWith(TMUX_SESSION_PREFIX))
+  } catch {
+    return []
+  }
+}
+
+// Get detailed info about tmux sessions
+export interface TmuxSessionInfo {
+  name: string
+  created: string
+  attached: boolean
+  windows: number
+}
+
+export function getTmuxSessionsInfo(): TmuxSessionInfo[] {
+  try {
+    const output = execSync(
+      `tmux list-sessions -F "#{session_name}|#{session_created}|#{session_attached}|#{session_windows}" 2>/dev/null`,
+      { encoding: "utf-8" }
+    )
+    return output
+      .split("\n")
+      .filter((s) => s.startsWith(TMUX_SESSION_PREFIX))
+      .map((line) => {
+        const [name, created, attached, windows] = line.split("|")
+        return {
+          name,
+          created: new Date(parseInt(created) * 1000).toISOString(),
+          attached: attached === "1",
+          windows: parseInt(windows) || 1,
+        }
+      })
   } catch {
     return []
   }
@@ -114,6 +156,7 @@ interface SpawnOptions {
   useTmux?: boolean
   bypassPermissions?: boolean
   autoStartClaude?: boolean  // Auto-start claude command (default: true)
+  label?: string  // Human-readable label for the session
 }
 
 interface SpawnResult {
@@ -140,6 +183,7 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
     useTmux = true,
     bypassPermissions = false,
     autoStartClaude = true,  // Default to auto-start claude
+    label,
   } = options
 
   const shell = process.env.SHELL || (os.platform() === "win32" ? "powershell.exe" : "bash")
@@ -151,7 +195,7 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
   let tmuxSessionName: string | null = null
 
   if (useTmux && isTmuxAvailable()) {
-    tmuxSessionName = getTmuxSessionName(sessionId)
+    tmuxSessionName = getTmuxSessionName(sessionId, label)
 
     // Kill existing session if it exists (for fresh start)
     if (tmuxSessionExists(tmuxSessionName)) {
@@ -331,6 +375,7 @@ export const terminalServer = {
   getTmuxSessionName,
   tmuxSessionExists,
   listTmuxSessions,
+  getTmuxSessionsInfo,
   killTmuxSession,
   killAllTmuxSessions,
   spawnTerminal,

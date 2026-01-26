@@ -27,6 +27,7 @@ Run multiple Claude Code instances simultaneously, each in its own persistent tm
 
 ## Features
 
+- **Token-Based Authentication** - Secure access with auto-generated tokens
 - **Auto-Start Claude Code** - Claude Code launches automatically in each terminal
 - **Project-Based Workflow** - Just enter a project name, folder is auto-created in `~/claudiator-projects`
 - **Multi-Terminal Dashboard** - Run up to 16 Claude Code instances simultaneously in a grid layout
@@ -41,6 +42,47 @@ Run multiple Claude Code instances simultaneously, each in its own persistent tm
 - **Flexible Grid Layout** - 1 to 4 column layouts, collapsible tiles
 - **Terminal Grouping** - Organize terminals into color-coded groups
 - **Works Standalone or Embedded** - Use as a standalone app or embed in your own projects
+
+---
+
+## Authentication
+
+Claudiator requires authentication to protect your terminal sessions. An access token is automatically generated on first run.
+
+### Finding Your Token
+
+When Claudiator starts for the first time, the token is:
+1. **Displayed in the terminal** with a visible banner
+2. **Saved to**: `.local-storage/claudiator-token.json`
+
+### Logging In
+
+1. Navigate to `http://localhost:3200`
+2. You'll be redirected to the login page
+3. Enter your access token
+4. Click "Login"
+
+Your session is saved as a cookie (24 hours). You can logout from the dashboard.
+
+### API Authentication
+
+For programmatic access, include the token in your requests:
+
+```bash
+# Header authentication
+curl -H "X-Claudiator-Token: YOUR_TOKEN" http://localhost:3200/api/sessions
+
+# Query parameter (for SSE connections)
+curl "http://localhost:3200/api/terminal?sessionId=abc&token=YOUR_TOKEN"
+```
+
+### Token Regeneration
+
+To regenerate the access token:
+1. Delete `.local-storage/claudiator-token.json`
+2. Restart Claudiator
+
+A new token will be generated and displayed.
 
 ---
 
