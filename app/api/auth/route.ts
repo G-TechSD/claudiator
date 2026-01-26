@@ -56,13 +56,20 @@ export async function POST(request: NextRequest) {
     })
 
     // Set session cookie (24 hours)
+    // Note: secure should only be true when using HTTPS
+    // For localhost, we never require secure even in production
+    const isLocalhost = request.headers.get("host")?.includes("localhost") ||
+                        request.headers.get("host")?.startsWith("127.0.0.1")
+
     response.cookies.set("claudiator_session", sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: !isLocalhost && process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 24 * 60 * 60, // 24 hours
       path: "/",
     })
+
+    console.log("[Auth] Cookie set, secure:", !isLocalhost && process.env.NODE_ENV === "production")
 
     return response
   } catch (error) {
