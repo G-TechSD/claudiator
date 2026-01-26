@@ -6,7 +6,7 @@
     "dev": "next dev --port 3200",
     "dev:turbo": "next dev --port 3200 --turbopack",
     "build": "next build",
-    "start": "node scripts/show-token.js && next start --port 3200",
+    "start": "node scripts/show-token.js; exec next start --port 3200",
     "token": "node scripts/show-token.js",
     "lint": "eslint"
   },

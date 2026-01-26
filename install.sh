@@ -278,8 +278,11 @@ PORT="${CLAUDIATOR_PORT:-3200}"
 case "$1" in
     start|"")
         cd "$INSTALL_DIR"
+        node scripts/show-token.js
         echo "Starting Claudiator on http://localhost:$PORT ..."
-        npm start
+        echo "Press Ctrl+C to stop"
+        echo ""
+        exec npx next start --port "$PORT"
         ;;
     dev)
         cd "$INSTALL_DIR"
