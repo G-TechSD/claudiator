@@ -75,6 +75,21 @@ get_os() {
     esac
 }
 
+# Install Homebrew on macOS if missing
+install_homebrew() {
+    log_info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    # Add brew to PATH for current session
+    if [ -f "/opt/homebrew/bin/brew" ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [ -f "/usr/local/bin/brew" ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+
+    log_success "Homebrew installed"
+}
+
 # Get package manager
 get_package_manager() {
     local os=$(get_os)
@@ -83,7 +98,9 @@ get_package_manager() {
         if command_exists brew; then
             echo "brew"
         else
-            echo "none"
+            # Auto-install Homebrew on macOS
+            install_homebrew
+            echo "brew"
         fi
     elif [ "$os" = "linux" ]; then
         if command_exists apt-get; then
@@ -305,18 +322,18 @@ SCRIPT
     log_success "Created 'claudiator' command"
 }
 
-# Create systemd service (Linux only)
+# Create systemd service (Linux only) - optional, not auto-enabled
 create_systemd_service() {
     if [ "$(get_os)" != "linux" ]; then
         return
     fi
 
-    read -p "Would you like to set up auto-start on boot (systemd)? [y/N] " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        return
-    fi
+    # Don't auto-create systemd service, but provide instructions
+    log_info "To enable auto-start on boot, run: claudiator enable-service"
+}
 
+# Actually create the systemd service (called by claudiator enable-service)
+setup_systemd_service() {
     local service_file="$HOME/.config/systemd/user/claudiator.service"
     mkdir -p "$(dirname "$service_file")"
 
@@ -341,7 +358,7 @@ SERVICE
     systemctl --user daemon-reload
     systemctl --user enable claudiator
 
-    log_success "Systemd service created"
+    log_success "Systemd service created and enabled"
     log_info "Start with: systemctl --user start claudiator"
     log_info "Stop with: systemctl --user stop claudiator"
     log_info "Logs with: journalctl --user -u claudiator -f"
@@ -371,32 +388,18 @@ main() {
         log_success "git found: $(git --version | head -1)"
     fi
 
-    # Node.js
+    # Node.js - auto-install if missing
     if ! check_node; then
-        log_warn "Node.js $MIN_NODE_VERSION+ not found"
-        read -p "Install Node.js? [Y/n] " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            install_node
-        else
-            log_error "Node.js $MIN_NODE_VERSION+ is required"
-            exit 1
-        fi
+        log_warn "Node.js $MIN_NODE_VERSION+ not found, installing automatically..."
+        install_node
     else
         log_success "Node.js found: $(node -v)"
     fi
 
-    # tmux (optional but recommended)
+    # tmux - auto-install (recommended for session persistence)
     if ! check_tmux; then
-        log_warn "tmux not found (recommended for session persistence)"
-        read -p "Install tmux? [Y/n] " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            install_tmux || true
-        else
-            log_warn "Skipping tmux installation"
-            log_info "You can disable tmux in Claudiator settings"
-        fi
+        log_info "Installing tmux for session persistence..."
+        install_tmux || log_warn "tmux installation failed - you can disable tmux in Claudiator settings"
     else
         log_success "tmux found: $(tmux -V)"
     fi
