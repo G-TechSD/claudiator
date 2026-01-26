@@ -113,11 +113,21 @@ interface SpawnOptions {
   rows: number
   useTmux?: boolean
   bypassPermissions?: boolean
+  autoStartClaude?: boolean  // Auto-start claude command (default: true)
 }
 
 interface SpawnResult {
   ptyProcess: pty.IPty
   tmuxSessionName: string | null
+}
+
+// Build the claude command with options
+function buildClaudeCommand(bypassPermissions: boolean): string {
+  let cmd = "claude"
+  if (bypassPermissions) {
+    cmd += " --dangerously-skip-permissions"
+  }
+  return cmd
 }
 
 // Spawn a new terminal process
@@ -129,10 +139,12 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
     rows,
     useTmux = true,
     bypassPermissions = false,
+    autoStartClaude = true,  // Default to auto-start claude
   } = options
 
   const shell = process.env.SHELL || (os.platform() === "win32" ? "powershell.exe" : "bash")
   const homeDir = os.homedir()
+  const claudeCommand = buildClaudeCommand(bypassPermissions)
 
   let spawnCmd: string
   let spawnArgs: string[]
@@ -147,8 +159,15 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
     }
 
     spawnCmd = "tmux"
-    spawnArgs = ["new-session", "-A", "-s", tmuxSessionName]
-    console.log(`[Claudiator] Creating tmux session: ${tmuxSessionName}`)
+
+    if (autoStartClaude) {
+      // Create tmux session running claude directly
+      spawnArgs = ["new-session", "-A", "-s", tmuxSessionName, claudeCommand]
+      console.log(`[Claudiator] Creating tmux session: ${tmuxSessionName} with ${claudeCommand}`)
+    } else {
+      spawnArgs = ["new-session", "-A", "-s", tmuxSessionName]
+      console.log(`[Claudiator] Creating tmux session: ${tmuxSessionName} (shell only)`)
+    }
   } else {
     spawnCmd = shell
     spawnArgs = ["-l"]
@@ -189,6 +208,13 @@ export function spawnTerminal(options: SpawnOptions): SpawnResult {
         console.log("[Claudiator] Could not enable tmux mouse mode:", e)
       }
     }, 500)
+  }
+
+  // If not using tmux but autoStartClaude is enabled, send the command
+  if (!tmuxSessionName && autoStartClaude) {
+    setTimeout(() => {
+      ptyProcess.write(`${claudeCommand}\r`)
+    }, 300)
   }
 
   // Handle process exit

@@ -1,6 +1,6 @@
 "use client"
 
-import { ClaudiatorSettings, DEFAULT_SETTINGS, STORAGE_KEYS, RecentPath } from "@/types"
+import { ClaudiatorSettings, ClaudiatorProject, DEFAULT_SETTINGS, STORAGE_KEYS, RecentPath } from "@/types"
 
 // Settings management
 export function loadSettings(): ClaudiatorSettings {
@@ -122,4 +122,29 @@ export function getMatchingPaths(query: string): RecentPath[] {
     // Then by use count
     return b.useCount - a.useCount
   })
+}
+
+// Projects management
+export function loadProjects(): ClaudiatorProject[] {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.PROJECTS)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch (e) {
+    console.error('Failed to load projects:', e)
+  }
+  return []
+}
+
+export function saveProjects(projects: ClaudiatorProject[]): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects))
+  } catch (e) {
+    console.error('Failed to save projects:', e)
+  }
 }

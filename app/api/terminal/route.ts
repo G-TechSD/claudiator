@@ -9,7 +9,13 @@ const sseConnections = new Map<string, ReadableStreamDefaultController>()
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { workingDirectory, bypassPermissions, cols = 80, rows = 24 } = body
+    const {
+      workingDirectory,
+      bypassPermissions,
+      autoStartClaude = true,  // Default to true
+      cols = 80,
+      rows = 24
+    } = body
 
     if (!workingDirectory) {
       return NextResponse.json(
@@ -27,6 +33,7 @@ export async function POST(request: NextRequest) {
       rows,
       useTmux: true,
       bypassPermissions: bypassPermissions || false,
+      autoStartClaude,
     })
 
     // Set up output handler for SSE

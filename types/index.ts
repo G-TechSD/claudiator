@@ -48,6 +48,17 @@ export interface RecentPath {
   useCount: number
 }
 
+// Project for organizing work
+export interface ClaudiatorProject {
+  id: string
+  name: string
+  path: string
+  createdAt: string
+  lastOpenedAt: string
+  description?: string
+  color?: TerminalColor
+}
+
 // Settings
 export interface ClaudiatorSettings {
   gridColumns: 1 | 2 | 3 | 4
@@ -55,7 +66,13 @@ export interface ClaudiatorSettings {
   theme: 'dark' | 'light' | 'system'
   serverHostname: string
   maxRecentPaths: number
+  projectsDirectory: string  // Default directory for new projects
+  autoStartClaude: boolean   // Auto-start claude in new terminals
+  integratedMode: boolean    // When true, controlled by Claudia Coder
 }
+
+// Default projects directory
+export const DEFAULT_PROJECTS_DIR = '~/claudiator-projects'
 
 export const DEFAULT_SETTINGS: ClaudiatorSettings = {
   gridColumns: 2,
@@ -63,6 +80,9 @@ export const DEFAULT_SETTINGS: ClaudiatorSettings = {
   theme: 'dark',
   serverHostname: '',
   maxRecentPaths: 25,
+  projectsDirectory: DEFAULT_PROJECTS_DIR,
+  autoStartClaude: true,
+  integratedMode: false,
 }
 
 // API request/response types
@@ -110,7 +130,8 @@ export const STORAGE_KEYS = {
   SETTINGS: 'claudiator-settings',
   RECENT_PATHS: 'claudiator-recent-paths',
   LAYOUT: 'claudiator-layout',
+  PROJECTS: 'claudiator-projects',
 } as const
 
 // Max terminals
-export const MAX_TERMINALS = 8
+export const MAX_TERMINALS = 16

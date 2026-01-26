@@ -27,6 +27,8 @@ Run multiple Claude Code instances simultaneously, each in its own persistent tm
 
 ## Features
 
+- **Auto-Start Claude Code** - Claude Code launches automatically in each terminal
+- **Project-Based Workflow** - Just enter a project name, folder is auto-created in `~/claudiator-projects`
 - **Multi-Terminal Dashboard** - Run up to 16 Claude Code instances simultaneously in a grid layout
 - **Session Persistence via tmux** - Each terminal runs in its own tmux session (`claudiator-{id}`), surviving:
   - Browser refresh
@@ -51,6 +53,13 @@ curl -fsSL https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bas
 ```
 
 This installs Claudiator and all dependencies automatically (Node.js, tmux, git).
+
+**The installer:**
+- Auto-installs Node.js, tmux, and git if missing
+- Configures your PATH automatically
+- Creates the `claudiator` command
+- Creates `~/claudiator-projects` for your projects
+- Includes an uninstaller for easy removal
 
 ### Then run:
 
@@ -291,15 +300,16 @@ Claudiator stores data in localStorage:
 
 ## Usage
 
-### Creating a Terminal
+### Creating a Project
 
-1. Click **"New Terminal"** or press `Ctrl+N`
-2. Choose a method:
-   - **Quick**: Creates a temporary folder for experimentation
-   - **Project**: Select from your Claudia Coder projects
-   - **Custom**: Enter any folder path
-3. Optionally set a label
-4. Click **"Add Terminal"**
+1. Enter a project name in the input field (e.g., "my-awesome-app")
+2. Press **Enter** or click **"New Project"**
+3. A folder is automatically created in `~/claudiator-projects/my-awesome-app`
+4. Claude Code starts automatically in the new terminal
+
+**Custom location:** Click "Choose custom location" to specify a different path.
+
+**Open existing project:** Click on any project button shown below the input to reopen it.
 
 ### Path Autocomplete
 
@@ -608,6 +618,30 @@ npm start
 # Lint
 npm run lint
 ```
+
+---
+
+## Uninstalling
+
+To completely remove Claudiator:
+
+```bash
+claudiator uninstall
+```
+
+Or run the uninstaller directly:
+
+```bash
+~/.claudiator/uninstall.sh
+```
+
+**The uninstaller:**
+- Stops any running Claudiator instances
+- Kills all Claudiator tmux sessions
+- Removes the installation directory (`~/.claudiator`)
+- Removes the `claudiator` command
+- Optionally removes your projects directory (`~/claudiator-projects`)
+- Cleans up shell configuration
 
 ---
 

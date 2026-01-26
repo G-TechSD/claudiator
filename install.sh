@@ -78,7 +78,7 @@ get_os() {
 # Install Homebrew on macOS if missing
 install_homebrew() {
     log_info "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null
 
     # Add brew to PATH for current session
     if [ -f "/opt/homebrew/bin/brew" ]; then
@@ -145,6 +145,7 @@ install_node() {
     case "$pm" in
         brew)
             brew install node@20
+            brew link --overwrite node@20 2>/dev/null || true
             ;;
         apt)
             # Use NodeSource for latest Node.js
@@ -245,6 +246,21 @@ install_git() {
     log_success "git installed: $(git --version)"
 }
 
+# Get shell config file
+get_shell_rc() {
+    if [ -n "$ZSH_VERSION" ] || [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+        echo "$HOME/.zshrc"
+    elif [ -n "$BASH_VERSION" ] || [ "$SHELL" = "/bin/bash" ] || [ "$SHELL" = "/usr/bin/bash" ]; then
+        echo "$HOME/.bashrc"
+    elif [ -f "$HOME/.zshrc" ]; then
+        echo "$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+        echo "$HOME/.bashrc"
+    else
+        echo "$HOME/.profile"
+    fi
+}
+
 # Create claudiator command
 create_command() {
     local bin_dir="$HOME/.local/bin"
@@ -262,7 +278,7 @@ PORT="${CLAUDIATOR_PORT:-3200}"
 case "$1" in
     start|"")
         cd "$INSTALL_DIR"
-        echo "Starting Claudiator on port $PORT..."
+        echo "Starting Claudiator on http://localhost:$PORT ..."
         npm start
         ;;
     dev)
@@ -271,11 +287,11 @@ case "$1" in
         npm run dev
         ;;
     stop)
-        pkill -f "claudiator" 2>/dev/null || echo "Claudiator not running"
+        pkill -f "next.*claudiator" 2>/dev/null || echo "Claudiator not running"
         ;;
     status)
         if curl -s "http://localhost:$PORT/api/health" > /dev/null 2>&1; then
-            echo "Claudiator is running on port $PORT"
+            echo "Claudiator is running on http://localhost:$PORT"
         else
             echo "Claudiator is not running"
         fi
@@ -288,80 +304,141 @@ case "$1" in
         echo "Claudiator updated successfully!"
         ;;
     uninstall)
-        echo "Uninstalling Claudiator..."
-        rm -rf "$INSTALL_DIR"
-        rm -f "$HOME/.local/bin/claudiator"
-        echo "Claudiator uninstalled"
+        "$INSTALL_DIR/uninstall.sh"
         ;;
     *)
-        echo "Usage: claudiator [start|dev|stop|status|update|uninstall]"
+        echo "Claudiator - Multi-Terminal Management for Claude Code"
+        echo ""
+        echo "Usage: claudiator [command]"
+        echo ""
+        echo "Commands:"
+        echo "  start       Start Claudiator server (default)"
+        echo "  stop        Stop Claudiator server"
+        echo "  status      Check if Claudiator is running"
+        echo "  update      Update to latest version"
+        echo "  uninstall   Remove Claudiator completely"
+        echo "  dev         Start in development mode"
+        echo ""
+        echo "After starting, open http://localhost:$PORT in your browser"
         ;;
 esac
 SCRIPT
 
     chmod +x "$cmd_file"
-
-    # Add to PATH if not already there
-    if [[ ":$PATH:" != *":$bin_dir:"* ]]; then
-        local shell_rc=""
-        if [ -f "$HOME/.zshrc" ]; then
-            shell_rc="$HOME/.zshrc"
-        elif [ -f "$HOME/.bashrc" ]; then
-            shell_rc="$HOME/.bashrc"
-        fi
-
-        if [ -n "$shell_rc" ]; then
-            echo "" >> "$shell_rc"
-            echo "# Claudiator" >> "$shell_rc"
-            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$shell_rc"
-            log_info "Added ~/.local/bin to PATH in $shell_rc"
-            log_warn "Please run: source $shell_rc"
-        fi
-    fi
-
     log_success "Created 'claudiator' command"
 }
 
-# Create systemd service (Linux only) - optional, not auto-enabled
-create_systemd_service() {
-    if [ "$(get_os)" != "linux" ]; then
+# Create uninstaller script
+create_uninstaller() {
+    local uninstall_file="$INSTALL_DIR/uninstall.sh"
+
+    cat > "$uninstall_file" << 'UNINSTALL'
+#!/bin/bash
+#
+# Claudiator Uninstaller
+#
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+INSTALL_DIR="${CLAUDIATOR_INSTALL_DIR:-$HOME/.claudiator}"
+BIN_FILE="$HOME/.local/bin/claudiator"
+PROJECTS_DIR="$HOME/claudiator-projects"
+
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║             Claudiator Uninstaller                        ║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Stop any running instances
+echo "Stopping Claudiator..."
+pkill -f "next.*claudiator" 2>/dev/null || true
+
+# Kill tmux sessions
+echo "Cleaning up tmux sessions..."
+tmux list-sessions -F "#{session_name}" 2>/dev/null | grep "^claudiator" | while read session; do
+    tmux kill-session -t "$session" 2>/dev/null || true
+done
+
+# Remove installation directory
+if [ -d "$INSTALL_DIR" ]; then
+    echo "Removing installation directory: $INSTALL_DIR"
+    rm -rf "$INSTALL_DIR"
+fi
+
+# Remove command
+if [ -f "$BIN_FILE" ]; then
+    echo "Removing claudiator command"
+    rm -f "$BIN_FILE"
+fi
+
+# Ask about projects directory
+if [ -d "$PROJECTS_DIR" ]; then
+    echo ""
+    echo -e "${YELLOW}Found projects directory: $PROJECTS_DIR${NC}"
+    read -p "Delete project files? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf "$PROJECTS_DIR"
+        echo "Deleted projects directory"
+    else
+        echo "Keeping projects directory"
+    fi
+fi
+
+# Remove from shell rc (optional - just comment it out)
+for rc_file in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+    if [ -f "$rc_file" ]; then
+        if grep -q "# Claudiator" "$rc_file"; then
+            sed -i.bak '/# Claudiator/,+1d' "$rc_file" 2>/dev/null || true
+        fi
+    fi
+done
+
+echo ""
+echo -e "${GREEN}Claudiator has been uninstalled.${NC}"
+echo ""
+echo "Note: To reinstall, run:"
+echo "  curl -fsSL https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash"
+UNINSTALL
+
+    chmod +x "$uninstall_file"
+    log_success "Created uninstaller at $uninstall_file"
+}
+
+# Add PATH to shell config
+setup_path() {
+    local bin_dir="$HOME/.local/bin"
+    local shell_rc=$(get_shell_rc)
+
+    # Check if PATH already contains bin_dir
+    if [[ ":$PATH:" == *":$bin_dir:"* ]]; then
+        log_success "PATH already configured"
         return
     fi
 
-    # Don't auto-create systemd service, but provide instructions
-    log_info "To enable auto-start on boot, run: claudiator enable-service"
+    # Add to shell rc if not already there
+    if ! grep -q "# Claudiator" "$shell_rc" 2>/dev/null; then
+        echo "" >> "$shell_rc"
+        echo "# Claudiator" >> "$shell_rc"
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$shell_rc"
+        log_info "Added PATH to $shell_rc"
+    fi
+
+    # Export for current session
+    export PATH="$bin_dir:$PATH"
+    log_success "PATH configured for current session"
 }
 
-# Actually create the systemd service (called by claudiator enable-service)
-setup_systemd_service() {
-    local service_file="$HOME/.config/systemd/user/claudiator.service"
-    mkdir -p "$(dirname "$service_file")"
-
-    cat > "$service_file" << SERVICE
-[Unit]
-Description=Claudiator - Multi-Terminal Management for Claude Code
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$(which node) $INSTALL_DIR/node_modules/.bin/next start -p $PORT
-Restart=on-failure
-RestartSec=10
-Environment=NODE_ENV=production
-Environment=PORT=$PORT
-
-[Install]
-WantedBy=default.target
-SERVICE
-
-    systemctl --user daemon-reload
-    systemctl --user enable claudiator
-
-    log_success "Systemd service created and enabled"
-    log_info "Start with: systemctl --user start claudiator"
-    log_info "Stop with: systemctl --user stop claudiator"
-    log_info "Logs with: journalctl --user -u claudiator -f"
+# Create projects directory
+create_projects_dir() {
+    local projects_dir="$HOME/claudiator-projects"
+    if [ ! -d "$projects_dir" ]; then
+        mkdir -p "$projects_dir"
+        log_success "Created projects directory: $projects_dir"
+    fi
 }
 
 # Main installation
@@ -379,9 +456,9 @@ main() {
     echo
 
     # Check dependencies
-    log_info "Checking dependencies..."
+    log_info "Checking and installing dependencies..."
 
-    # Git
+    # Git - auto-install
     if ! check_git; then
         install_git
     else
@@ -428,8 +505,14 @@ main() {
     # Create command
     create_command
 
-    # Optionally set up systemd
-    create_systemd_service
+    # Setup PATH (adds to shell rc AND current session)
+    setup_path
+
+    # Create uninstaller
+    create_uninstaller
+
+    # Create default projects directory
+    create_projects_dir
 
     echo
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
@@ -444,22 +527,17 @@ main() {
     echo -e "  ${BOLD}Then open in your browser:${NC}"
     echo -e "    ${CYAN}http://localhost:$PORT${NC}"
     echo
-    echo -e "  ${BOLD}Other commands:${NC}"
-    echo -e "    ${CYAN}claudiator start${NC}     - Start the server"
+    echo -e "  ${BOLD}Commands:${NC}"
+    echo -e "    ${CYAN}claudiator${NC}           - Start the server"
     echo -e "    ${CYAN}claudiator stop${NC}      - Stop the server"
     echo -e "    ${CYAN}claudiator status${NC}    - Check if running"
     echo -e "    ${CYAN}claudiator update${NC}    - Update to latest version"
     echo -e "    ${CYAN}claudiator uninstall${NC} - Remove Claudiator"
     echo
-
-    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-        echo -e "  ${YELLOW}Note: Run this to use the claudiator command now:${NC}"
-        echo -e "    ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
-        echo
-    fi
-
-    echo -e "  ${BOLD}Documentation:${NC} https://claudiator.app"
-    echo -e "  ${BOLD}GitHub:${NC} https://github.com/G-TechSD/claudiator"
+    echo -e "  ${BOLD}Projects are saved to:${NC}"
+    echo -e "    ${CYAN}~/claudiator-projects${NC}"
+    echo
+    echo -e "  ${BOLD}Documentation:${NC} https://github.com/G-TechSD/claudiator"
     echo
 }
 
