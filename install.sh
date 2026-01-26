@@ -4,8 +4,8 @@
 # Multi-terminal management for Claude Code CLI sessions
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
-#   wget -qO- https://raw.githubusercontent.com/G-TechSD/claudiator/main/install.sh | bash
+#   curl -fsSL https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
+#   wget -qO- https://cdn.jsdelivr.net/gh/G-TechSD/claudiator@main/install.sh | bash
 #
 
 set -e
