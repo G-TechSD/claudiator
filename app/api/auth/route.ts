@@ -57,19 +57,26 @@ export async function POST(request: NextRequest) {
 
     // Set session cookie (24 hours)
     // Note: secure should only be true when using HTTPS
-    // For localhost, we never require secure even in production
+    // When CLAUDIATOR_ALLOW_REMOTE=true, user has accepted HTTP-only access
+    // so we should NOT set secure flag (browsers reject secure cookies over HTTP)
+    const allowRemote = process.env.CLAUDIATOR_ALLOW_REMOTE === "true"
     const isLocalhost = request.headers.get("host")?.includes("localhost") ||
                         request.headers.get("host")?.startsWith("127.0.0.1")
 
+    // Never set secure=true if:
+    // 1. It's localhost (always allow HTTP for local dev)
+    // 2. Remote access is enabled (SSL not supported, user accepted HTTP)
+    const useSecureCookie = !isLocalhost && !allowRemote && process.env.NODE_ENV === "production"
+
     response.cookies.set("claudiator_session", sessionId, {
       httpOnly: true,
-      secure: !isLocalhost && process.env.NODE_ENV === "production",
+      secure: useSecureCookie,
       sameSite: "lax",
       maxAge: 24 * 60 * 60, // 24 hours
       path: "/",
     })
 
-    console.log("[Auth] Cookie set, secure:", !isLocalhost && process.env.NODE_ENV === "production")
+    console.log("[Auth] Cookie set, secure:", useSecureCookie, "allowRemote:", allowRemote)
 
     return response
   } catch (error) {
