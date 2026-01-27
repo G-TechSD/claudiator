@@ -120,6 +120,21 @@ export function TerminalEmulator({
       sendResize(cols, rows)
     })
 
+    // If tmuxSessionName is provided, send a reconnect command first
+    if (tmuxSessionName) {
+      fetch("/api/terminal", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          type: "reconnect",
+          tmuxSessionName,
+          cols: terminal.cols,
+          rows: terminal.rows,
+        }),
+      }).catch((err) => console.error("Failed to reconnect to tmux:", err))
+    }
+
     // Connect to SSE stream for output
     const eventSource = new EventSource(`/api/terminal?sessionId=${sessionId}`)
     eventSourceRef.current = eventSource
@@ -169,7 +184,7 @@ export function TerminalEmulator({
       fitAddonRef.current = null
       eventSourceRef.current = null
     }
-  }, [sessionId, sendInput, sendResize, onReady, onExit])
+  }, [sessionId, tmuxSessionName, sendInput, sendResize, onReady, onExit])
 
   // Refit when container size changes
   const fit = useCallback(() => {
