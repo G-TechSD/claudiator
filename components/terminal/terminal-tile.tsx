@@ -18,6 +18,8 @@ interface TerminalTileProps {
   session: TerminalSession
   onClose: (id: string) => void
   onPopOut: (id: string) => void
+  isPoppedOut?: boolean
+  onPopIn?: (id: string) => void
   className?: string
 }
 
@@ -25,6 +27,8 @@ export function TerminalTile({
   session,
   onClose,
   onPopOut,
+  isPoppedOut = false,
+  onPopIn,
   className,
 }: TerminalTileProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -121,8 +125,8 @@ export function TerminalTile({
         {session.workingDirectory}
       </div>
 
-      {/* Terminal */}
-      {!isCollapsed && (
+      {/* Terminal - only show if not collapsed and not popped out */}
+      {!isCollapsed && !isPoppedOut && (
         <div ref={terminalContainerRef} className="flex-1 min-h-[300px]">
           <TerminalEmulator
             sessionId={session.id}
@@ -134,10 +138,30 @@ export function TerminalTile({
         </div>
       )}
 
+      {/* Popped out placeholder */}
+      {!isCollapsed && isPoppedOut && (
+        <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center gap-3 bg-purple-500/5 border-2 border-dashed border-purple-500/30 m-2 rounded-lg">
+          <ExternalLink className="h-8 w-8 text-purple-400" />
+          <p className="text-sm text-purple-400">Terminal in separate window</p>
+          <p className="text-xs text-muted-foreground">tmux: {session.tmuxSessionName}</p>
+          {onPopIn && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPopIn(session.id)}
+              className="mt-2"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Pop back in
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Collapsed placeholder */}
       {isCollapsed && (
         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-          Terminal collapsed - click to expand
+          {isPoppedOut ? "Terminal popped out" : "Terminal collapsed - click to expand"}
         </div>
       )}
     </div>

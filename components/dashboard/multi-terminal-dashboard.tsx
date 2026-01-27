@@ -58,6 +58,7 @@ export function MultiTerminalDashboard() {
   const [existingProjects, setExistingProjects] = useState<{ name: string; path: string }[]>([])
   const [tmuxSessions, setTmuxSessions] = useState<TmuxSessionInfo[]>([])
   const [showTmuxDropdown, setShowTmuxDropdown] = useState(false)
+  const [poppedOutTerminals, setPoppedOutTerminals] = useState<Set<string>>(new Set())
 
   // Logout handler
   const handleLogout = useCallback(async () => {
@@ -300,20 +301,47 @@ export function MultiTerminalDashboard() {
       const terminal = terminals.find((t) => t.id === id)
       if (!terminal) return
 
+      // Mark as popped out BEFORE opening window
+      // This disconnects the main terminal from tmux
+      setPoppedOutTerminals((prev) => new Set([...prev, id]))
+
       const params = new URLSearchParams({
         sessionId: terminal.id,
         tmuxSessionName: terminal.tmuxSessionName,
         label: terminal.label || terminal.workingDirectory,
       })
 
-      window.open(
+      const popOutWindow = window.open(
         `/terminal/${terminal.id}?${params.toString()}`,
         `claudiator-${terminal.id}`,
         "width=1000,height=700,menubar=no,toolbar=no,location=no,status=no"
       )
+
+      // Listen for window close to pop back in
+      if (popOutWindow) {
+        const checkClosed = setInterval(() => {
+          if (popOutWindow.closed) {
+            clearInterval(checkClosed)
+            setPoppedOutTerminals((prev) => {
+              const next = new Set(prev)
+              next.delete(id)
+              return next
+            })
+          }
+        }, 500)
+      }
     },
     [terminals]
   )
+
+  // Pop a terminal back in
+  const handlePopIn = useCallback((id: string) => {
+    setPoppedOutTerminals((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }, [])
 
   // Close all terminals
   const handleCloseAll = useCallback(async () => {
@@ -654,6 +682,8 @@ export function MultiTerminalDashboard() {
                 session={terminal}
                 onClose={handleCloseTerminal}
                 onPopOut={handlePopOut}
+                isPoppedOut={poppedOutTerminals.has(terminal.id)}
+                onPopIn={handlePopIn}
               />
             ))}
           </div>
