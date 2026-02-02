@@ -48,5 +48,20 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"
-  }
+  },
+  "description": "Multi-instance Claude Code terminal orchestration with shared sessions and sub-agent tracking",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/G-TechSD/claudiator.git"
+  },
+  "author": "G-Tech SD",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "terminal",
+    "orchestration",
+    "multi-agent"
+  ]
 }
